@@ -17,16 +17,15 @@ st.markdown("""
 st.markdown("""
 ### Interactive interpretation of variant allele fraction in tumor-only sequencing data.
 ---
-**Overview:** This application visualizes the relationship between **Variant Allele Fraction (VAF)** and **Pathological Tumor Content (TC)** based on the **Knudson two-hit hypothesis**. By plotting observed patient data against theoretical reference lines, it assists in the discrimination between germline (hereditary) and somatic (acquired) variants.
+**Overview:** This application visualizes the relationship between **Variant Allele Fraction (VAF)** and **Pathological Tumor Content (TC)** based on the **Knudson two-hit hypothesis**. 
 """)
 
 # --- Sidebar for Data Input ---
 st.sidebar.header("Patient Data Input")
 st.sidebar.markdown("---")
-# Explicitly set step for numeric precision
 tc = st.sidebar.slider("Pathological Tumor Content (TC)", 0.0, 1.0, 0.5, 0.01)
 vaf = st.sidebar.slider("Observed VAF", 0.0, 1.0, 0.5, 0.01)
-gene = st.sidebar.text_input("Variant Identifier (e.g., BRCA2 p.L2848*)", "Variant X")
+gene = st.sidebar.text_input("Variant Identifier", "Variant X")
 
 # --- Interpretation Logic ---
 tol = 0.05
@@ -57,11 +56,10 @@ else:
 col1, col2 = st.columns([3, 1])
 
 with col1:
-    # Use a clearer figure management approach
     fig, ax = plt.subplots(figsize=(10, 7))
     x_range = np.linspace(0.01, 1.0, 100)
     
-    # Draw Lines
+    # Lines
     ax.plot(x_range, 0.5 * x_range + 0.5, color='#D4AF37', label="Germline + cnLOH")
     ax.plot(x_range, 1 / (2 - x_range), color='red', label="Germline + LOH (Del)")
     ax.axhline(0.5, color='brown', linewidth=2, label="Germline (Hetero)")
@@ -69,28 +67,33 @@ with col1:
     ax.plot(x_range, x_range / (2 - x_range), color='gray', linestyle=':', label="Somatic + LOH (Del)")
     ax.plot(x_range, 0.5 * x_range, color='gray', linestyle='--', alpha=0.5, label="Somatic (Hetero)")
     
-    # Patient point
     ax.scatter(tc, vaf, color='black', s=200, zorder=5, label=f"Patient: {gene}")
     
-    # Explicit formatting to avoid "Magic" interception
     ax.set_xlabel("Tumor Content (TC)")
     ax.set_ylabel("Variant Allele Fraction (VAF)")
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
     ax.grid(True, linestyle='--', alpha=0.3)
-    
-    # Final render call
     st.pyplot(fig)
 
 with col2:
     st.header("Summary")
-    st.write(f"**Gene:** {gene}")
+    st.write(f"**Target:** {gene}")
     st.write(f"**TC:** {tc*100:.0f}% | **VAF:** {vaf*100:.0f}%")
     st.write("---")
     
     st.header("Clinical Guidance")
     st.markdown(f"<div class='advice-box'><div class='advice-title'>Automated Talking Points</div>{advice_text}</div>", unsafe_allow_html=True)
+    
+    st.write("---")
+    # --- The Restored Reference Guide (Cleaned for Publication) ---
+    st.header("Reference Guide")
+    st.markdown("""
+    - **Solid Lines:** Suggest potential germline origin or biallelic inactivation (LOH).
+    - **Dashed/Dotted Lines:** Suggest potential somatic origin.
+    - **Gray Zone (TC 60-70%):** Theoretical lines converge, making discrimination difficult.
+    """)
 
 st.divider()
-st.caption("Clinical Disclaimer: This tool is for educational purposes and supportive visual communication only.")
+st.caption("Clinical Disclaimer: This tool is for supportive visual communication and educational purposes only.")
