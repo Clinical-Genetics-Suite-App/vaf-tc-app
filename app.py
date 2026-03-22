@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="VAF-TC Visualizer | Clinical Decision Support", layout="wide")
 st.title("🧪 VAF–Tumor Content Graph Visualizer")
 
-# Custom CSS for the Advice Box (Corrected parameter name)
+# Custom CSS for the Advice Box
 st.markdown("""
 <style>
 .advice-box { padding: 15px; border-radius: 5px; border: 1px solid #d4af37; background-color: #f9f9f9; color: #333; }
@@ -23,13 +23,10 @@ st.markdown("""
 # --- Sidebar for Data Input ---
 st.sidebar.header("Patient Data Input")
 st.sidebar.markdown("---")
+# Explicitly set step for numeric precision
 tc = st.sidebar.slider("Pathological Tumor Content (TC)", 0.0, 1.0, 0.5, 0.01)
 vaf = st.sidebar.slider("Observed VAF", 0.0, 1.0, 0.5, 0.01)
 gene = st.sidebar.text_input("Variant Identifier (e.g., BRCA2 p.L2848*)", "Variant X")
-
-st.sidebar.info("""
-**Instructions:** Adjust the sliders to plot the patient's data point (black dot). Proximity to theoretical lines indicates potential genomic mechanisms.
-""")
 
 # --- Interpretation Logic ---
 tol = 0.05
@@ -41,37 +38,30 @@ somatic_loh_del = tc / (2 - tc) if tc < 2 else 1.0
 somatic_loh_cn = tc
 
 advice_text = ""
-
-# Intersection Case: TC 0.5 / VAF 0.5
 if abs(tc - 0.5) < 0.05 and abs(vaf - 0.5) < 0.05:
-    advice_text = "**Inconclusive Intersection:** This data point lies where 'Heterozygous Germline' and 'Somatic with Copy-neutral LOH' converge. VAF analysis alone cannot distinguish the origin. Detailed family history and confirmatory germline testing are essential."
-# Gray Zone: TC 0.6-0.7
+    advice_text = "**Inconclusive Intersection:** This data point lies where 'Heterozygous Germline' and 'Somatic with Copy-neutral LOH' converge. VAF analysis alone cannot distinguish the origin."
 elif 0.60 <= tc <= 0.70:
-    advice_text = "**TC Gray Zone Alert (60-70%):** At this tumor content, theoretical lines for germline and somatic LOH overlap significantly. Interpret with caution. Clinical integration (age of onset, pedigree) is prioritized over VAF-based modeling."
-# Likely Germline LOH (Deletion or CN-LOH)
+    advice_text = "**TC Gray Zone Alert (60-70%):** At this tumor content, theoretical lines for germline and somatic LOH overlap significantly. Interpret with caution."
 elif abs(vaf - germline_loh_cn) < tol or abs(vaf - germline_loh_del) < tol:
-    advice_text = "**Likely Germline with LOH:** The high VAF relative to TC suggests a hereditary variant that has undergone biallelic inactivation (Loss of Heterosity) within the tumor."
-# Likely Germline Hetero
+    advice_text = "**Likely Germline with LOH:** The high VAF relative to TC suggests a hereditary variant that has undergone biallelic inactivation (LOH) within the tumor."
 elif abs(vaf - germline_hetero) < tol:
-    advice_text = "**Likely Heterozygous Germline:** The VAF remains stable at approximately 0.5, consistent with a constitutional heterozygous state regardless of tumor content."
-# Likely Somatic LOH
+    advice_text = "**Likely Heterozygous Germline:** Consistent with a constitutional heterozygous state regardless of tumor content."
 elif abs(vaf - somatic_loh_cn) < tol or abs(vaf - somatic_loh_del) < tol:
-    advice_text = "**Likely Somatic with LOH:** The VAF correlates strongly with tumor content, suggesting an acquired variant that has undergone clonal selection and LOH."
-# Likely Somatic Hetero
+    advice_text = "**Likely Somatic with LOH:** The VAF correlates with tumor content, suggesting an acquired variant that has undergone LOH."
 elif abs(vaf - somatic_hetero) < tol:
-    advice_text = "**Likely Heterozygous Somatic:** The VAF is approximately half of the tumor content, indicating a typical acquired subclonal or clonal event without copy number changes."
-# No Match
+    advice_text = "**Likely Heterozygous Somatic:** The VAF is approximately half of the tumor content, indicating a typical acquired event without LOH."
 else:
-    advice_text = "**Atypical Distribution:** The observed VAF does not align with standard diploid models. Consider potential subclonality, non-diploid tumor states, or technical noise."
+    advice_text = "**Atypical Distribution:** The observed VAF does not align with standard diploid models."
 
 # --- Main Visualization Area ---
 col1, col2 = st.columns([3, 1])
 
 with col1:
-    x_range = np.linspace(0.01, 1.0, 100)
+    # Use a clearer figure management approach
     fig, ax = plt.subplots(figsize=(10, 7))
+    x_range = np.linspace(0.01, 1.0, 100)
     
-    # Plotting Lines
+    # Draw Lines
     ax.plot(x_range, 0.5 * x_range + 0.5, color='#D4AF37', label="Germline + cnLOH")
     ax.plot(x_range, 1 / (2 - x_range), color='red', label="Germline + LOH (Del)")
     ax.axhline(0.5, color='brown', linewidth=2, label="Germline (Hetero)")
@@ -79,8 +69,28 @@ with col1:
     ax.plot(x_range, x_range / (2 - x_range), color='gray', linestyle=':', label="Somatic + LOH (Del)")
     ax.plot(x_range, 0.5 * x_range, color='gray', linestyle='--', alpha=0.5, label="Somatic (Hetero)")
     
+    # Patient point
     ax.scatter(tc, vaf, color='black', s=200, zorder=5, label=f"Patient: {gene}")
     
-    ax.set_xlabel("Tumor Content (TC)", fontsize=12)
-    ax.set_ylabel("Variant Allele Fraction (VAF)", fontsize=12)
-    ax.set_xlim
+    # Explicit formatting to avoid "Magic" interception
+    ax.set_xlabel("Tumor Content (TC)")
+    ax.set_ylabel("Variant Allele Fraction (VAF)")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+    ax.grid(True, linestyle='--', alpha=0.3)
+    
+    # Final render call
+    st.pyplot(fig)
+
+with col2:
+    st.header("Summary")
+    st.write(f"**Gene:** {gene}")
+    st.write(f"**TC:** {tc*100:.0f}% | **VAF:** {vaf*100:.0f}%")
+    st.write("---")
+    
+    st.header("Clinical Guidance")
+    st.markdown(f"<div class='advice-box'><div class='advice-title'>Automated Talking Points</div>{advice_text}</div>", unsafe_allow_html=True)
+
+st.divider()
+st.caption("Clinical Disclaimer: This tool is for educational purposes and supportive visual communication only.")
