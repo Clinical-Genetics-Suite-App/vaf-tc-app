@@ -65,11 +65,12 @@ with col_alerts:
     # --- Clinical Alerts ---
 
     # Pre-compute key thresholds
-    som_cnloh_vaf = tc * 100
-    som_del_vaf = tc / (2 - tc) * 100
-    germ_del_vaf = 1 / (2 - tc) * 100
+    som_cnloh_vaf = tc * 100                        # Somatic + cnLOH = TC
+    som_del_vaf = tc / (2 - tc) * 100               # Somatic + LOH (Del)
+    germ_del_vaf = 1 / (2 - tc) * 100               # Germline + LOH (Del)
 
-    # Alert 1: Somatic cnLOH Trap (TC 40–60%)
+    # Trap 1: Somatic cnLOH Trap (TC 40–60%)
+    #   At TC ≈ 50%, Somatic+cnLOH = TC ≈ 50% = Germline Hetero
     if 40 <= tc_input <= 60:
         st.warning(
             f"⚠️ **Somatic cnLOH Trap:** At TC {tc_input}%, Somatic cnLOH (UPD) "
@@ -79,7 +80,8 @@ with col_alerts:
             f"Pair-normal testing is essential."
         )
 
-    # Alert 2: Gray Zone (TC 61–66%)
+    # Trap 2: Somatic LOH (Del) approaching 50% (TC 61–66%)
+    #   Gray Zone: Somatic+LOH(Del) approaches Germline Hetero from below
     elif 61 <= tc_input <= 66:
         st.warning(
             f"⚠️ **Gray Zone (Somatic LOH Del):** At TC {tc_input}%, "
@@ -89,6 +91,8 @@ with col_alerts:
         )
 
     # Alert 3: LOH Convergence Zone (TC ≥ 67%)
+    #   At TC = 2/3 ≈ 66.7%, Somatic+LOH(Del) = Germline Hetero = 50%
+    #   Above this TC, the somatic and germline LOH lines converge
     elif tc_input >= 67:
         if vaf_input >= tc / (2 - tc) * 100:
             st.error(
@@ -128,16 +132,6 @@ with col_alerts:
     except FileNotFoundError:
         st.caption("VAF-TC theoretical_model.xlsx not found.")
 
-    # Clinical Notes
-    with st.expander("📝 Clinical Notes", expanded=True):
-        st.markdown("""
-        **PARPi Indications:**
-        - **Ovarian/Prostate:** gBRCA & sBRCA eligible.
-        - **Breast/Pancreas:** gBRCA only.
-
-        **Lynch Syndrome:**
-        - High responsiveness to **ICIs**. Biallelic loss is a key differentiator.
-        """)
 
 # --- RIGHT COLUMN: Visualization ---
 with col_graph:
