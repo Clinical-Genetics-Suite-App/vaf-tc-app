@@ -11,6 +11,7 @@ st.set_page_config(page_title="VAF-TC Precision Analyzer", layout="wide")
 st.title("🧬 VAF-TC Precision Analyzer")
 st.markdown("Interactive visual tool for germline/somatic variant differentiation in tumor-only sequencing.")
 st.caption("⚠️ This tool is intended as a supportive aid for genetic counseling. It does not replace confirmatory germline testing or established clinical guidelines.")
+st.caption("⚠️ This tool does not incorporate gene-specific prior probabilities. Genes such as TP53, APC, and PTEN have high somatic mutation rates; clinical context and family history are essential for interpretation.")
 
 # 3. Sidebar Input Parameters
 st.sidebar.header("📋 Patient Data Input")
@@ -123,6 +124,7 @@ with col_alerts:
                 st.warning(f"➡️ {msg}")
             else:
                 st.info(f"➡️ {msg}")
+            st.caption("💡 Note: This interpretation is based solely on VAF–TC mathematical models and does not reflect gene-specific germline likelihood.")
             st.divider()
     else:
         # Single-variant interpretation
@@ -142,6 +144,7 @@ with col_alerts:
             st.warning(f"➡️ {msg}")
         else:
             st.info(f"➡️ {msg}")
+        st.caption("💡 Note: This interpretation is based solely on VAF–TC mathematical models and does not reflect gene-specific germline likelihood.")
 
     # --- Clinical Alerts ---
 
