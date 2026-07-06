@@ -32,6 +32,7 @@ jobs:
 
           (async () => {
             const browser = await chromium.launch();
+            const wereAsleep = [];
             for (const url of URLS) {
               try {
                 const context = await browser.newContext();
@@ -41,6 +42,7 @@ jobs:
 
                 const wakeBtn = page.getByRole('button', { name: /get this app back up/i });
                 if (await wakeBtn.count() > 0) {
+                  wereAsleep.push(url);
                   console.log('  -> App was sleeping. Clicking wake button...');
                   await wakeBtn.click();
                   await page.waitForTimeout(30000);
@@ -55,6 +57,15 @@ jobs:
               }
             }
             await browser.close();
+
+            // If any app was found asleep, fail the run so GitHub emails a notification.
+            // (The apps are re-woken above; failing is purely to alert you.)
+            if (wereAsleep.length > 0) {
+              console.error(`\nALERT: ${wereAsleep.length} app(s) were found ASLEEP and have been re-woken:`);
+              for (const u of wereAsleep) console.error(`  - ${u}`);
+              console.error('Failing this run to trigger a GitHub notification. Apps should be back up now.');
+              process.exit(1);
+            }
           })();
           SCRIPT_EOF
           node wake.js
