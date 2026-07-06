@@ -58,3 +58,22 @@ jobs:
           })();
           SCRIPT_EOF
           node wake.js
+
+  keepalive:
+    # Reset GitHub's 60-day inactivity timer so this scheduled workflow is never
+    # auto-disabled (the reason both apps silently went to sleep before).
+    # Self-contained: calls the Actions API directly, no third-party action needed.
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Re-enable this workflow via the Actions API
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsS -X PUT \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/keep-alive.yml/enable"
+          echo "Re-enabled keep-alive.yml (60-day inactivity timer reset)."
