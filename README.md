@@ -44,7 +44,7 @@ A **+/-10% error margin** is applied for model matching to account for variabili
 
 ## Clinical Alert System
 
-The app generates four context-dependent alerts based on TC and VAF. The TC thresholds (<= 20%, >= 60%, >= 70%) follow the description of this software published in *Journal of Human Genetics*.
+The app generates four context-dependent alerts based on TC and VAF. The TC thresholds (<= 20%, >= 60%) follow the description of this software published in *Journal of Human Genetics*. The TC >= 90% alert is an addition not described in the paper.
 
 ### Alert 1 — Low TC (TC <= 20%)
 
@@ -54,11 +54,11 @@ At low tumor content, theoretical lines are compressed into a narrow VAF range a
 
 **High VAF does not exclude a somatic origin.** At high tumor content, germline and somatic LOH lines converge, and variants with somatic LOH can reach VAF values typical of germline variants. The corresponding region is shaded yellow on the graph.
 
-### Alert 3 — LOH Convergence (TC >= 70%)
+### Alert 3 — LOH Convergence (TC >= 60%)
 
-Above TC = 2/3 (approximately 66.7%), somatic (LOH with Del) rises past germline (Hetero) at 50% and approaches the germline LOH lines. This alert fires when:
+As TC rises, somatic (LOH with Del) climbs past germline (Hetero) at 50% (at TC = 2/3, approximately 66.7%) and approaches the germline LOH lines. This alert fires when:
 
-- **TC >= 70%**, AND
+- **TC >= 60%**, AND
 - **VAF >= somatic (LOH with Del) line** at current TC
 
 Both conditions must be met. The alert displays the actual theoretical values for clinical reference.
@@ -88,7 +88,7 @@ The app provides gene-specific contextual messages based on the **Guidelines for
 - **Model matching** with +/-10% error margin and theoretical VAF display
 - **Automated interpretation** based on compatible model combinations
 - **Gene-specific messages** for 31 genes per GPV/PGPV Guidelines (2025 Edition)
-- **Four clinical alerts** based on TC values (<= 20% / >= 60% / >= 70% / >= 90%)
+- **Four clinical alerts** based on TC values (<= 20% / >= 60% / >= 90%)
 - **Shaded bands** reproducing Fig. 1: TC <= 20% (low confidence) and TC >= 60% (high VAF does not exclude somatic origin)
 - **Important Note** on startup with model assumptions and limitations
 - **Multi-variant CSV upload** to plot multiple variants simultaneously on the graph
@@ -128,18 +128,23 @@ streamlit run app.py
 
 | File | Description |
 |------|-------------|
-| app.py | Main Streamlit application (ver 3.5) |
+| app.py | Main Streamlit application (ver 3.6) |
 | requirements.txt | Python dependencies |
 | VAF-TC theoretical_model.xlsx | Excel file for generating theoretical VAF-TC curves |
 | VAF_TC_theoretical_model.csv | CSV version of the theoretical model data |
 | data_dictionary.txt | Variable definitions for the theoretical model |
+
+## Changelog (ver 3.6)
+
+- **Fixed** the LOH Convergence alert threshold: **TC >= 70% -> >= 60%**. Ver 3.5 was built against a pre-publication proof that read ">=70%"; the published article reads ">=60%". The app now matches the published text, and the threshold coincides with the TC >= 60% shaded band in Fig. 1.
+- **Clarified** that the TC >= 90% alert is an addition not described in the paper.
 
 ## Changelog (ver 3.5)
 
 Aligned with the published paper (*J Hum Genet* 2026, doi:10.1038/s10038-026-01494-7) and hardened for long-term public use.
 
 - **Renamed** the application to **VAF–TC Visualizer**, the name used in the paper
-- **Changed** alert thresholds to **TC <= 20% / >= 60% / >= 70%**, matching the published description; the former Gray Zone alert (TC 61-66%) was removed as redundant with the TC >= 60% alert
+- **Changed** alert thresholds to **TC <= 20% / >= 60%**, matching the published description; the former Gray Zone alert (TC 61-66%) was removed as redundant with the TC >= 60% alert
 - **Added** the paper's wording "High VAF does not exclude a somatic origin" to the TC >= 60% alert
 - **Added** TC >= 60% yellow shading, plus "Germline (LOH with gain)" and "Subclone" area labels, reproducing Fig. 1
 - **Changed** low-VAF interpretation to state that germline origin cannot be excluded, citing **reverse LOH**

@@ -229,12 +229,12 @@ with col_alerts:
 
         # TC帯域アラート ― 変異ごとに評価する。CSVアップロード時も
         # サイドバーの値ではなく各行の値に基づいて表示される。
-        # 閾値(≤20% / ≥60% / ≥70%)は J Hum Genet (2026) 掲載論文の
-        # 本ソフトウェアに関する記述に準拠する。
+        # 閾値(≤20% / ≥60%)は J Hum Genet (2026) 掲載論文の本ソフトウェアに
+        # 関する記述に準拠する。下の TC ≥90% アラートは論文に記載のない追加機能。
         f = min(max(float(t), 0.0), 100.0) / 100.0
         som_del_vaf = f / (2 - f) * 100
         germ_del_vaf = 1 / (2 - f) * 100
-        if t >= 70 and v >= som_del_vaf:
+        if t >= 60 and v >= som_del_vaf:
             st.error(
                 f"🔴 **LOH収束アラート：** TC {t:.0f}%、VAF {v:.0f}%では、"
                 f"変異が somatic (LOH with Del) ライン({som_del_vaf:.1f}%)以上に位置します。"
@@ -355,4 +355,4 @@ with col_graph:
 
 # 7. フッター
 st.divider()
-st.caption("VAF–TC Visualizer | Clinical Genetics Suite | ver 3.5 ✅")
+st.caption("VAF–TC Visualizer | Clinical Genetics Suite | ver 3.6 ✅")

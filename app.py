@@ -230,12 +230,13 @@ with col_alerts:
 
         # TC-band alerts — evaluated per variant so they stay correct for
         # every row of an uploaded CSV, not just the sidebar sliders.
-        # Thresholds (≤20% / ≥60% / ≥70%) follow the published description
-        # of this software in J Hum Genet (2026).
+        # Thresholds (≤20% / ≥60%) follow the published description of this
+        # software in J Hum Genet (2026). The TC ≥90% alert below is an
+        # addition not described in the paper.
         f = min(max(float(t), 0.0), 100.0) / 100.0
         som_del_vaf = f / (2 - f) * 100
         germ_del_vaf = 1 / (2 - f) * 100
-        if t >= 70 and v >= som_del_vaf:
+        if t >= 60 and v >= som_del_vaf:
             st.error(
                 f"🔴 **LOH Convergence Alert:** At TC {t:.0f}% and VAF {v:.0f}%, "
                 f"the variant falls at or above the somatic (LOH with Del) line "
@@ -358,4 +359,4 @@ with col_graph:
 
 # 7. Footer
 st.divider()
-st.caption("VAF–TC Visualizer | Clinical Genetics Suite | ver 3.5 ✅")
+st.caption("VAF–TC Visualizer | Clinical Genetics Suite | ver 3.6 ✅")
