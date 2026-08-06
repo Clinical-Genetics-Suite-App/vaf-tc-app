@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local tooling / editor settings
+.claude/
+
+# Manuscript working files (kept locally, not part of the published app)
+*.docx
+*.pptx
+paper_full.txt
+paper_extract.txt
+unpacked_paper/
+作成中/

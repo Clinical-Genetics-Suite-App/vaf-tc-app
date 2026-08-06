@@ -1,4 +1,4 @@
-# VAF-TC 精密解析ツール
+# VAF–TC Visualizer
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit App (EN)](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://vaf-tc-app.streamlit.app/)
@@ -44,30 +44,30 @@
 
 ## 臨床アラートシステム
 
-本アプリはTCに基づいて5つの状況依存アラートを生成します。
+本アプリはTCに基づいて4つの状況依存アラートを生成します。TCの閾値（≤ 20%・≥ 60%・≥ 70%）は *Journal of Human Genetics* 掲載論文における本ソフトウェアの記述に準拠しています。
 
-### アラート1 ― グレーゾーン(TC 61〜66%)
+### アラート1 ― 低TC(TC ≤ 20%)
 
-TCが66.7%に近づくにつれ、somatic (LOH with Del) = f/(2-f) が50%に下から近づきます。この範囲では体細胞LOH欠失ラインが germline (Hetero) との判別困難を生じさせます。
+低TCでは理論線が狭いVAF範囲に圧縮され、モデルマッチングの信頼性が低下します。サブクローン変異・正常組織の混入・技術的ノイズが支配的になる可能性があります。グラフ上では該当領域をグレーで網掛け表示します。
 
-### アラート2 ― LOH収束ゾーン(TC ≥ 67%)
+### アラート2 ― 高TC(TC ≥ 60%)
 
-TC = 2/3（約66.7%）で somatic (LOH with Del) が germline (Hetero) と50%で一致します。このTCを超えると体細胞・生殖細胞系列のLOH線が収束します。以下の条件を両方満たす場合に発動します：
+**高VAFであっても体細胞起源は否定できません。** 高TCでは生殖細胞系列と体細胞のLOH線が収束するため、体細胞変異でもLOHを伴えば生殖細胞系列変異に典型的なVAF値に達しうるためです。グラフ上では該当領域を黄色で網掛け表示します。
 
-- **TC ≥ 67%**、かつ
+### アラート3 ― LOH収束(TC ≥ 70%)
+
+TC = 2/3（約66.7%）を超えると somatic (LOH with Del) が germline (Hetero) の50%を上回り、生殖細胞系列のLOH線に接近します。以下の条件を両方満たす場合に発動します：
+
+- **TC ≥ 70%**、かつ
 - **VAF ≥ 現在のTCにおける somatic (LOH with Del) ライン**
 
-### アラート3 ― 極高腫瘍純度(TC ≥ 90%)
+### アラート4 ― 極高腫瘍純度(TC ≥ 90%)
 
 純度が非常に高い場合、5つの理論モデルすべてが狭いVAF範囲に圧縮されます。高VAFでも体細胞起源の可能性があります。すべての症例で生殖細胞系列検査が必須です。
 
-### アラート4 ― 低TC(TC ≤ 20%)
+### 低VAF解釈に関する注記
 
-低TCでは理論線が狭いVAF範囲に圧縮され、モデルマッチングの信頼性が低下します。サブクローン変異・正常組織の混入・技術的ノイズが支配的になる可能性があります。
-
-### アラート5 ― 高TC(TC ≥ 60%)
-
-高TCでは生殖細胞系列と体細胞のLOH線が収束し始めます。VAFのみでの起源判別が困難になります。
+体細胞モデルのみが該当する場合、本アプリは生殖細胞系列の可能性が「低い」と表示しますが、**除外はできません**。reverse LOH（腫瘍細胞内で変異アレルが失われる現象）により、生殖細胞系列変異が低VAFとして現れることがあるためです。
 
 ## 遺伝子リファレンスシステム(GPV/PGPV対応手順指針 2025版 準拠)
 
@@ -86,8 +86,8 @@ TC = 2/3（約66.7%）で somatic (LOH with Del) が germline (Hetero) と50%で
 - **モデルマッチング**：±10%誤差マージンによる適合モデルと理論VAFの表示
 - **自動解釈**：適合モデルの組み合わせに基づく臨床的解釈文の自動生成
 - **遺伝子別メッセージ**：GPV/PGPV対応手順指針(2025版)準拠の31遺伝子対応
-- **5つのアラート**：TCの値に基づく状況依存アラート
-- **低信頼ゾーン**：TC < 20%のグレーゾーン表示
+- **4つのアラート**：TCの値に基づく状況依存アラート（≤ 20% / ≥ 60% / ≥ 70% / ≥ 90%）
+- **網掛け表示**：Fig. 1 を再現し、TC ≤ 20%(低信頼)とTC ≥ 60%(高VAFでも体細胞起源を否定できない)を色分け
 - **重要な注意事項**：起動時にモデルの前提と限界を表示
 - **複数変異CSVアップロード**：同一グラフへの複数変異の一括プロット
 - **CSVテンプレートダウンロード**：複数変異ワークフロー用テンプレート
@@ -127,12 +127,26 @@ streamlit run app_ja.py     # 日本語版
 
 | ファイル | 説明 |
 |------|-------------|
-| app.py | メインStreamlitアプリ・英語版(ver 3.4) |
-| app_ja.py | メインStreamlitアプリ・日本語版(ver 3.4) |
+| app.py | メインStreamlitアプリ・英語版(ver 3.5) |
+| app_ja.py | メインStreamlitアプリ・日本語版(ver 3.5) |
 | requirements.txt | Pythonの依存パッケージ |
 | VAF-TC theoretical_model.xlsx | VAF-TC理論曲線生成用Excelファイル |
 | VAF_TC_theoretical_model.csv | 理論モデルデータのCSV版 |
 | data_dictionary.txt | 理論モデルの変数定義 |
+
+## 変更履歴(ver 3.5)
+
+掲載論文（*J Hum Genet* 2026, doi:10.1038/s10038-026-01494-7）との整合と、長期公開に向けた堅牢化。
+
+- **改称** アプリ名を論文で用いられている **VAF–TC Visualizer** に変更
+- **変更** アラート閾値を論文の記述に合わせ **TC ≤ 20% / ≥ 60% / ≥ 70%** に統一。従来のグレーゾーン(TC 61〜66%)はTC ≥ 60%アラートと論点が重複するため廃止
+- **追加** TC ≥ 60%アラートに論文の文言「高VAFであっても体細胞起源は否定できない」を明示
+- **追加** TC ≥ 60%の黄色網掛けと「Germline (LOH with gain)」「Subclone」の領域ラベル（Fig. 1 の再現）
+- **変更** 低VAF時の解釈を、**reverse LOH** により生殖細胞系列を除外できない旨を明記する表現に修正
+- **修正** CSVに非数値・範囲外のTC/VAFがあるとゼロ除算でアプリが停止する不具合。該当行は報告のうえスキップするように変更
+- **修正** TC帯域アラートがCSVの各行ではなくサイドバーのスライダー値を参照していた不具合
+- **追加** requirements.txt に pandas を追加（従来は未宣言の直接インポート）し、メジャーバージョンの上限を設定
+- **更新** 引用情報を全著者名・DOI付きに更新
 
 ## 変更履歴(ver 3.4)
 
@@ -156,7 +170,9 @@ streamlit run app_ja.py     # 日本語版
 
 本ツールを研究に使用される場合は以下を引用してください：
 
-> Kashima M, Tsubamoto H, et al. "VAF-Tumor Content Graph: A Simple Visual Tool for Discriminating Germline and Somatic Variants in Tumor-Only Sequencing." *Journal of Human Genetics*（投稿中）.
+> Kashima M, Tsubamoto H, Ueda T, Kinjo C, Okada C, Muroi Y, Ueda M, Otsuki T, Kataoka K, Nagahashi M, Matsuda I, Sawai H, Kijima T, Miyazaki A. VAF–tumor content graph: a simple visual framework for interpreting hereditary cancer variants and supporting genetic counseling in tumor-only sequencing. *Journal of Human Genetics*. 2026. https://doi.org/10.1038/s10038-026-01494-7
+
+本論文は [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) のオープンアクセスです。本アプリは論文中で **VAF–TC Visualizer** として参照されています。
 
 ## 著者
 

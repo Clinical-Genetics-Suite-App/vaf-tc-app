@@ -5,10 +5,11 @@ import plotly.graph_objects as go
 import io
 
 # 1. Page Configuration
-st.set_page_config(page_title="VAF-TC Precision Analyzer", layout="wide")
+st.set_page_config(page_title="VAF–TC Visualizer", layout="wide")
 
-# 2. Title
-st.title("🧬 VAF-TC Precision Analyzer")
+# 2. Title — the name used in Kashima M, et al. J Hum Genet (2026),
+#    doi:10.1038/s10038-026-01494-7
+st.title("🧬 VAF–TC Visualizer")
 st.markdown("Interactive visual tool for germline/somatic variant differentiation in tumor-only sequencing.")
 st.caption("⚠️ This tool is intended as a supportive aid for genetic counseling. It does not replace confirmatory germline testing or established clinical guidelines.")
 st.caption("⚠️ Gene Reference System is based on the **Guidelines for GPV/PGPV Handling Procedures in Cancer Gene Panel Testing (2025 Edition)** (MHLW Research Grant) — T-only PGPV disclosure recommended gene list.")
@@ -94,7 +95,25 @@ if uploaded_file is not None:
             st.sidebar.error("CSV must have columns: Gene, TC, VAF")
             multi_df = None
         else:
-            st.sidebar.success(f"{len(multi_df)} variants loaded.")
+            # TC/VAF must be numeric percentages in 0-100. Anything else
+            # (text, blanks, out-of-range values) is dropped here so the
+            # theoretical formulas below never see an invalid tumor content.
+            n_total = len(multi_df)
+            multi_df["TC"] = pd.to_numeric(multi_df["TC"], errors="coerce")
+            multi_df["VAF"] = pd.to_numeric(multi_df["VAF"], errors="coerce")
+            valid = multi_df["TC"].between(0, 100) & multi_df["VAF"].between(0, 100)
+            n_dropped = int((~valid).sum())
+            multi_df = multi_df[valid].reset_index(drop=True)
+            if n_dropped:
+                st.sidebar.warning(
+                    f"{n_dropped} of {n_total} row(s) skipped: TC and VAF must be "
+                    f"numbers between 0 and 100."
+                )
+            if multi_df.empty:
+                st.sidebar.error("No valid rows found in the CSV.")
+                multi_df = None
+            else:
+                st.sidebar.success(f"{len(multi_df)} variants loaded.")
     except Exception as e:
         st.sidebar.error(f"Error reading CSV: {e}")
         multi_df = None
@@ -116,9 +135,6 @@ try:
 except FileNotFoundError:
     st.sidebar.caption("VAF-TC theoretical_model.xlsx not found.")
 
-tc = tc_input / 100.0
-vaf = vaf_input / 100.0
-
 # 5. Mathematical Foundation (diploid model) — 5 theoretical models
 x_range = np.linspace(0.01, 1.0, 100)
 y_germ_cnloh  = (1 + x_range) / 2         # germline (cnLOH)
@@ -138,8 +154,10 @@ with col_alerts:
     error_margin = 0.10
 
     def get_compatible_models(tc_val, vaf_val):
-        f = tc_val / 100.0
-        v = vaf_val / 100.0
+        # Clamped defensively: with f in [0, 1] the (2 - f) denominators
+        # below stay in [1, 2] and can never divide by zero.
+        f = min(max(float(tc_val), 0.0), 100.0) / 100.0
+        v = min(max(float(vaf_val), 0.0), 100.0) / 100.0
         checks = {
             "germline (cnLOH)":        (1 + f) / 2,
             "germline (LOH with Del)": 1 / (2 - f),
@@ -177,12 +195,12 @@ with col_alerts:
             return "info", "Multiple germline models are compatible. Germline origin is likely, but the LOH mechanism cannot be determined from VAF alone."
         # Pure somatic — single model
         if som_del and not som_hetero:
-            return "info", "Pattern is consistent with a **somatic variant with LOH by deletion**. Germline origin is unlikely at this TC."
+            return "info", "Pattern is consistent with a **somatic variant with LOH by deletion**. Germline origin is less likely at this TC, but **cannot be excluded**: reverse LOH (loss of the variant allele within tumor cells) can make a germline variant appear at low VAF."
         if som_hetero and not som_del:
-            return "info", "Pattern is consistent with a **somatic heterozygous variant (without LOH)**. Germline origin is unlikely at this TC."
+            return "info", "Pattern is consistent with a **somatic heterozygous variant (without LOH)**. Germline origin is less likely at this TC, but **cannot be excluded**: reverse LOH (loss of the variant allele within tumor cells) can make a germline variant appear at low VAF."
         # Multiple somatic models
         if has_som:
-            return "info", "Multiple somatic models are compatible. Somatic origin is likely at this TC."
+            return "info", "Multiple somatic models are compatible. Somatic origin is more likely at this TC, but germline origin **cannot be excluded**: reverse LOH (loss of the variant allele within tumor cells) can make a germline variant appear at low VAF."
         return "info", "Clinical correlation and pair-normal testing are recommended."
 
     def show_variant_interpretation(g, t, v):
@@ -204,7 +222,36 @@ with col_alerts:
         if t <= 20:
             st.warning("⚠️ **Low TC (≤ 20%):** At low tumor content, theoretical lines are compressed into a narrow VAF range and model matching is less reliable. Subclonal variants, admixture with normal tissue, or technical noise may dominate.")
         if t >= 60:
-            st.warning("⚠️ **High TC (≥ 60%):** At high tumor content, germline and somatic LOH lines begin to converge. Origin determination by VAF alone becomes increasingly difficult.")
+            st.warning(
+                "⚠️ **High TC (≥ 60%): High VAF does not exclude a somatic origin.** "
+                "At high tumor content, germline and somatic LOH lines converge, and "
+                "variants with somatic LOH can reach VAF values typical of germline variants."
+            )
+
+        # TC-band alerts — evaluated per variant so they stay correct for
+        # every row of an uploaded CSV, not just the sidebar sliders.
+        # Thresholds (≤20% / ≥60% / ≥70%) follow the published description
+        # of this software in J Hum Genet (2026).
+        f = min(max(float(t), 0.0), 100.0) / 100.0
+        som_del_vaf = f / (2 - f) * 100
+        germ_del_vaf = 1 / (2 - f) * 100
+        if t >= 70 and v >= som_del_vaf:
+            st.error(
+                f"🔴 **LOH Convergence Alert:** At TC {t:.0f}% and VAF {v:.0f}%, "
+                f"the variant falls at or above the somatic (LOH with Del) line "
+                f"({som_del_vaf:.1f}%). In this region, germline (LOH with Del) = "
+                f"{germ_del_vaf:.1f}% and somatic (LOH with Del) = {som_del_vaf:.1f}% "
+                f"overlap — origin cannot be determined by VAF alone. "
+                f"Germline confirmation is essential."
+            )
+        if t >= 90:
+            st.warning(
+                f"⚠️ **Extreme Tumor Purity:** At TC {t:.0f}%, all theoretical "
+                f"models compress into a narrow VAF range. Variants may still be "
+                f"of somatic origin even at high VAF. "
+                f"Family history review and germline testing are essential."
+            )
+
         # Gene-specific message (GPV/PGPV Guidelines 2025)
         _, gene_msg = get_gene_message(g)
         st.info(gene_msg)
@@ -216,35 +263,6 @@ with col_alerts:
             st.divider()
     else:
         show_variant_interpretation(gene_name, tc_input, vaf_input)
-
-    # --- TC-based Clinical Alerts ---
-    som_del_vaf  = tc / (2 - tc) * 100 if tc < 2 else 0
-    germ_del_vaf = 1 / (2 - tc) * 100 if tc < 2 else 0
-
-    if 61 <= tc_input <= 66:
-        st.warning(
-            f"⚠️ **Gray Zone (Somatic LOH Del):** At TC {tc_input}%, "
-            f"somatic (LOH with Del) produces VAF = {som_del_vaf:.1f}%, "
-            f"approaching germline (Hetero) at 50%. "
-            f"Confirmation testing is recommended."
-        )
-    elif tc_input >= 67:
-        if vaf_input >= tc / (2 - tc) * 100:
-            st.error(
-                f"🔴 **LOH Convergence Alert:** At TC {tc_input}% and VAF {vaf_input}%, "
-                f"the variant falls at or above the somatic (LOH with Del) line "
-                f"({som_del_vaf:.1f}%). In this region, germline (LOH with Del) = "
-                f"{germ_del_vaf:.1f}% and somatic (LOH with Del) = {som_del_vaf:.1f}% "
-                f"converge — origin cannot be determined by VAF alone. "
-                f"Germline confirmation is essential."
-            )
-        if tc_input >= 90:
-            st.warning(
-                f"⚠️ **Extreme Tumor Purity:** At TC {tc_input}%, all theoretical "
-                f"models compress into a narrow VAF range. Variants may still be "
-                f"of somatic origin even at high VAF. "
-                f"Family history review and germline testing are essential."
-            )
 
     st.divider()
 
@@ -303,8 +321,17 @@ with col_graph:
             marker=dict(color='black', size=14, symbol='circle')
         ))
 
+    # Shaded bands and area labels reproduce Fig. 1 of the published paper.
     fig.add_vrect(x0=0, x1=20, fillcolor="gray", opacity=0.1, layer="below", line_width=0,
                   annotation_text="Low Confidence Zone", annotation_position="top left")
+    fig.add_vrect(x0=60, x1=100, fillcolor="#f2d492", opacity=0.25, layer="below", line_width=0)
+
+    # "Germline (LOH with gain)" is the region above the germline (cnLOH) line;
+    # "Subclone" is the region below the somatic (Hetero) line.
+    fig.add_annotation(x=40, y=90, text="Germline (LOH with gain)", showarrow=False,
+                       font=dict(size=13, color="#444"))
+    fig.add_annotation(x=78, y=10, text="Subclone", showarrow=False,
+                       font=dict(size=13, color="#444"))
 
     fig.update_layout(
         xaxis_title="Pathological Tumor Content (%)", yaxis_title="Variant Allele Fraction (%)",
@@ -313,6 +340,10 @@ with col_graph:
         template="simple_white", height=600
     )
     st.plotly_chart(fig, use_container_width=True)
+    st.caption(
+        "⬜ TC ≤ 20%: Low confidence in classification　"
+        "🟨 TC ≥ 60%: High VAF does not exclude a somatic origin."
+    )
 
     # Gene Reference Table (GPV/PGPV Guidelines 2025)
     st.subheader("📖 Gene Reference (GPV/PGPV Guidelines 2025)")
@@ -327,4 +358,4 @@ with col_graph:
 
 # 7. Footer
 st.divider()
-st.caption("VAF-TC Precision Analyzer | Clinical Genetics Suite | ver 3.4 ✅")
+st.caption("VAF–TC Visualizer | Clinical Genetics Suite | ver 3.5 ✅")

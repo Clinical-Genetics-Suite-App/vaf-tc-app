@@ -1,3 +1,8 @@
-streamlit
-plotly
-numpy
+# The app is cited from Kashima M, et al. J Hum Genet (2026),
+# doi:10.1038/s10038-026-01494-7, so it needs to keep running for years.
+# Upper bounds guard against breaking major releases; pandas is a direct
+# import (it used to be pulled in only indirectly via streamlit).
+streamlit>=1.40,<2.0
+plotly>=5.24,<7.0
+numpy>=1.26,<3.0
+pandas>=2.0,<4.0

@@ -5,10 +5,11 @@ import plotly.graph_objects as go
 import io
 
 # 1. ページ設定
-st.set_page_config(page_title="VAF-TC 精密解析ツール", layout="wide")
+st.set_page_config(page_title="VAF–TC Visualizer", layout="wide")
 
-# 2. タイトル
-st.title("🧬 VAF-TC 精密解析ツール")
+# 2. タイトル ― 論文 Kashima M, et al. J Hum Genet (2026),
+#    doi:10.1038/s10038-026-01494-7 で用いられている名称
+st.title("🧬 VAF–TC Visualizer")
 st.markdown("腫瘍単独シーケンシングにおける生殖細胞系列・体細胞変異の鑑別を支援するインタラクティブ可視化ツール。")
 st.caption("⚠️ 本ツールは遺伝カウンセリングの補助ツールです。確認的な生殖細胞系列検査や確立された臨床ガイドラインの代替とはなりません。")
 st.caption("⚠️ 遺伝子リファレンスシステムは **厚生労働科学研究費補助金 がん遺伝子パネル検査におけるGPV/PGPV対応手順に関する指針(2025版)** のT-only検査PGPV開示推奨遺伝子リストに準拠しています。")
@@ -94,7 +95,24 @@ if uploaded_file is not None:
             st.sidebar.error("CSVにはGene・TC・VAF列が必要です。")
             multi_df = None
         else:
-            st.sidebar.success(f"{len(multi_df)} 件の変異を読み込みました。")
+            # TC・VAFは0〜100の数値のみ許可する。文字列・空欄・範囲外の値は
+            # ここで除外し、以降の理論式に不正な腫瘍含有率が渡らないようにする。
+            n_total = len(multi_df)
+            multi_df["TC"] = pd.to_numeric(multi_df["TC"], errors="coerce")
+            multi_df["VAF"] = pd.to_numeric(multi_df["VAF"], errors="coerce")
+            valid = multi_df["TC"].between(0, 100) & multi_df["VAF"].between(0, 100)
+            n_dropped = int((~valid).sum())
+            multi_df = multi_df[valid].reset_index(drop=True)
+            if n_dropped:
+                st.sidebar.warning(
+                    f"{n_total} 行中 {n_dropped} 行を除外しました："
+                    f"TCとVAFは0〜100の数値で入力してください。"
+                )
+            if multi_df.empty:
+                st.sidebar.error("CSVに有効な行がありません。")
+                multi_df = None
+            else:
+                st.sidebar.success(f"{len(multi_df)} 件の変異を読み込みました。")
     except Exception as e:
         st.sidebar.error(f"CSV読み込みエラー：{e}")
         multi_df = None
@@ -116,9 +134,6 @@ try:
 except FileNotFoundError:
     st.sidebar.caption("VAF-TC theoretical_model.xlsx が見つかりません。")
 
-tc = tc_input / 100.0
-vaf = vaf_input / 100.0
-
 # 5. 数理モデル(二倍体モデル) ― 5つの理論モデル
 x_range = np.linspace(0.01, 1.0, 100)
 y_germ_cnloh  = (1 + x_range) / 2         # germline (cnLOH)
@@ -138,8 +153,10 @@ with col_alerts:
     error_margin = 0.10
 
     def get_compatible_models(tc_val, vaf_val):
-        f = tc_val / 100.0
-        v = vaf_val / 100.0
+        # 防御的にクランプする。f を [0, 1] に収めることで、以下の
+        # (2 - f) は [1, 2] となりゼロ除算が起こらない。
+        f = min(max(float(tc_val), 0.0), 100.0) / 100.0
+        v = min(max(float(vaf_val), 0.0), 100.0) / 100.0
         checks = {
             "germline (cnLOH)":        (1 + f) / 2,
             "germline (LOH with Del)": 1 / (2 - f),
@@ -177,12 +194,12 @@ with col_alerts:
             return "info", "複数の生殖細胞系列モデルが該当します。生殖細胞系列起源の可能性が高いですが、LOH機構はVAFのみでは判別できません。"
         # 体細胞 ― 単一モデル
         if som_del and not som_hetero:
-            return "info", "**欠失によるLOHを伴う体細胞変異** のパターンと一致します。このTCでは生殖細胞系列の可能性は低いです。"
+            return "info", "**欠失によるLOHを伴う体細胞変異** のパターンと一致します。このTCでは生殖細胞系列の可能性は低いものの、**除外はできません**。reverse LOH（腫瘍細胞内で変異アレルが失われる現象）により、生殖細胞系列変異が低VAFとして現れることがあります。"
         if som_hetero and not som_del:
-            return "info", "**LOHを伴わないヘテロ接合性体細胞変異** のパターンと一致します。このTCでは生殖細胞系列の可能性は低いです。"
+            return "info", "**LOHを伴わないヘテロ接合性体細胞変異** のパターンと一致します。このTCでは生殖細胞系列の可能性は低いものの、**除外はできません**。reverse LOH（腫瘍細胞内で変異アレルが失われる現象）により、生殖細胞系列変異が低VAFとして現れることがあります。"
         # 複数の体細胞モデル
         if has_som:
-            return "info", "複数の体細胞モデルが該当します。このTCでは体細胞起源の可能性が高いです。"
+            return "info", "複数の体細胞モデルが該当します。このTCでは体細胞起源の可能性が高いですが、**生殖細胞系列を除外はできません**。reverse LOH（腫瘍細胞内で変異アレルが失われる現象）により、生殖細胞系列変異が低VAFとして現れることがあります。"
         return "info", "臨床的文脈との照合とペア正常検査を推奨します。"
 
     def show_variant_interpretation(g, t, v):
@@ -204,7 +221,34 @@ with col_alerts:
         if t <= 20:
             st.warning("⚠️ **低TC(≤ 20%)：** 低TCでは理論線が狭いVAF範囲に圧縮され、モデルマッチングの信頼性が低下します。サブクローン変異・正常組織の混入・技術的ノイズが支配的になる可能性があります。")
         if t >= 60:
-            st.warning("⚠️ **高TC(≥ 60%)：** 高TCでは生殖細胞系列と体細胞のLOH線が収束し始めます。VAFのみでの起源判別が困難になります。")
+            st.warning(
+                "⚠️ **高TC(≥ 60%)：高VAFであっても体細胞起源は否定できません。** "
+                "高TCでは生殖細胞系列と体細胞のLOH線が収束するため、体細胞変異でも"
+                "LOHを伴えば生殖細胞系列変異に典型的なVAF値に達しうるためです。"
+            )
+
+        # TC帯域アラート ― 変異ごとに評価する。CSVアップロード時も
+        # サイドバーの値ではなく各行の値に基づいて表示される。
+        # 閾値(≤20% / ≥60% / ≥70%)は J Hum Genet (2026) 掲載論文の
+        # 本ソフトウェアに関する記述に準拠する。
+        f = min(max(float(t), 0.0), 100.0) / 100.0
+        som_del_vaf = f / (2 - f) * 100
+        germ_del_vaf = 1 / (2 - f) * 100
+        if t >= 70 and v >= som_del_vaf:
+            st.error(
+                f"🔴 **LOH収束アラート：** TC {t:.0f}%、VAF {v:.0f}%では、"
+                f"変異が somatic (LOH with Del) ライン({som_del_vaf:.1f}%)以上に位置します。"
+                f"この領域では germline (LOH with Del) = {germ_del_vaf:.1f}% と "
+                f"somatic (LOH with Del) = {som_del_vaf:.1f}% が重なり、"
+                f"VAFのみでは起源を判別できません。生殖細胞系列確認検査が必須です。"
+            )
+        if t >= 90:
+            st.warning(
+                f"⚠️ **極高腫瘍純度：** TC {t:.0f}%では、すべての理論モデルが"
+                f"狭いVAF範囲に圧縮されます。高VAFでも体細胞起源の可能性があります。"
+                f"家族歴の確認と生殖細胞系列検査が必須です。"
+            )
+
         # 遺伝子別メッセージ(GPV/PGPV対応指針 2025版)
         _, gene_msg = get_gene_message(g)
         st.info(gene_msg)
@@ -216,32 +260,6 @@ with col_alerts:
             st.divider()
     else:
         show_variant_interpretation(gene_name, tc_input, vaf_input)
-
-    # --- TCベースの臨床アラート ---
-    som_del_vaf  = tc / (2 - tc) * 100 if tc < 2 else 0
-    germ_del_vaf = 1 / (2 - tc) * 100 if tc < 2 else 0
-
-    if 61 <= tc_input <= 66:
-        st.warning(
-            f"⚠️ **グレーゾーン(Somatic LOH Del)：** TC {tc_input}%では、"
-            f"somatic (LOH with Del) の理論VAF = {som_del_vaf:.1f}%となり、"
-            f"germline (Hetero) の50%に接近します。確認検査を推奨します。"
-        )
-    elif tc_input >= 67:
-        if vaf_input >= tc / (2 - tc) * 100:
-            st.error(
-                f"🔴 **LOH収束アラート：** TC {tc_input}%、VAF {vaf_input}%では、"
-                f"変異が somatic (LOH with Del) ライン({som_del_vaf:.1f}%)以上に位置します。"
-                f"この領域では germline (LOH with Del) = {germ_del_vaf:.1f}% と "
-                f"somatic (LOH with Del) = {som_del_vaf:.1f}% が収束し、"
-                f"VAFのみでは起源を判別できません。生殖細胞系列確認検査が必須です。"
-            )
-        if tc_input >= 90:
-            st.warning(
-                f"⚠️ **極高腫瘍純度：** TC {tc_input}%では、すべての理論モデルが"
-                f"狭いVAF範囲に圧縮されます。高VAFでも体細胞起源の可能性があります。"
-                f"家族歴の確認と生殖細胞系列検査が必須です。"
-            )
 
     st.divider()
 
@@ -300,8 +318,17 @@ with col_graph:
             marker=dict(color='black', size=14, symbol='circle')
         ))
 
+    # 網掛けと領域ラベルは掲載論文の Fig. 1 を再現している。
     fig.add_vrect(x0=0, x1=20, fillcolor="gray", opacity=0.1, layer="below", line_width=0,
                   annotation_text="低信頼ゾーン", annotation_position="top left")
+    fig.add_vrect(x0=60, x1=100, fillcolor="#f2d492", opacity=0.25, layer="below", line_width=0)
+
+    # "Germline (LOH with gain)" は germline (cnLOH) 線より上の領域、
+    # "Subclone" は somatic (Hetero) 線より下の領域を指す。
+    fig.add_annotation(x=40, y=90, text="Germline (LOH with gain)", showarrow=False,
+                       font=dict(size=13, color="#444"))
+    fig.add_annotation(x=78, y=10, text="Subclone", showarrow=False,
+                       font=dict(size=13, color="#444"))
 
     fig.update_layout(
         xaxis_title="病理学的腫瘍含有率(%)", yaxis_title="変異アレル頻度(%)",
@@ -310,6 +337,10 @@ with col_graph:
         template="simple_white", height=600
     )
     st.plotly_chart(fig, use_container_width=True)
+    st.caption(
+        "⬜ TC ≤ 20%：分類の信頼性が低い領域　"
+        "🟨 TC ≥ 60%：高VAFであっても体細胞起源は否定できない領域"
+    )
 
     # 遺伝子リファレンス表(GPV/PGPV対応指針 2025版)
     st.subheader("📖 遺伝子リファレンス(GPV/PGPV対応指針 2025版)")
@@ -324,4 +355,4 @@ with col_graph:
 
 # 7. フッター
 st.divider()
-st.caption("VAF-TC 精密解析ツール | Clinical Genetics Suite | ver 3.4 ✅")
+st.caption("VAF–TC Visualizer | Clinical Genetics Suite | ver 3.5 ✅")

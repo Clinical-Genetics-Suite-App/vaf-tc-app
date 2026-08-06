@@ -1,4 +1,4 @@
-# VAF-TC Precision Analyzer
+# VAF–TC Visualizer
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit App (EN)](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://vaf-tc-app.streamlit.app/)
@@ -44,32 +44,32 @@ A **+/-10% error margin** is applied for model matching to account for variabili
 
 ## Clinical Alert System
 
-The app generates five context-dependent alerts based on TC and VAF:
+The app generates four context-dependent alerts based on TC and VAF. The TC thresholds (<= 20%, >= 60%, >= 70%) follow the description of this software published in *Journal of Human Genetics*.
 
-### Alert 1 — Gray Zone (TC 61-66%)
+### Alert 1 — Low TC (TC <= 20%)
 
-As TC increases toward 66.7%, somatic (LOH with Del) = f/(2-f) approaches 50% from below. In this range, the somatic LOH deletion line is close enough to 50% to create ambiguity with germline (Hetero).
+At low tumor content, theoretical lines are compressed into a narrow VAF range and model matching is less reliable. Subclonal variants, admixture with normal tissue, or technical noise may dominate. The corresponding region is shaded gray on the graph.
 
-### Alert 2 — LOH Convergence Zone (TC >= 67%)
+### Alert 2 — High TC (TC >= 60%)
 
-At TC = 2/3 (approximately 66.7%), somatic (LOH with Del) **exactly equals** germline (Hetero) at 50%. Above this TC, the somatic and germline LOH lines converge. This alert fires when:
+**High VAF does not exclude a somatic origin.** At high tumor content, germline and somatic LOH lines converge, and variants with somatic LOH can reach VAF values typical of germline variants. The corresponding region is shaded yellow on the graph.
 
-- **TC >= 67%**, AND
+### Alert 3 — LOH Convergence (TC >= 70%)
+
+Above TC = 2/3 (approximately 66.7%), somatic (LOH with Del) rises past germline (Hetero) at 50% and approaches the germline LOH lines. This alert fires when:
+
+- **TC >= 70%**, AND
 - **VAF >= somatic (LOH with Del) line** at current TC
 
 Both conditions must be met. The alert displays the actual theoretical values for clinical reference.
 
-### Alert 3 — Extreme Tumor Purity (TC >= 90%)
+### Alert 4 — Extreme Tumor Purity (TC >= 90%)
 
 At very high purity, all five theoretical models compress into a narrow VAF range. Variants may still be of somatic origin even at high VAF. This alert fires regardless of VAF, as germline testing becomes essential in all cases.
 
-### Alert 4 — Low TC (TC <= 20%)
+### Note on low-VAF interpretation
 
-At low tumor content, theoretical lines are compressed into a narrow VAF range and model matching is less reliable. Subclonal variants, admixture with normal tissue, or technical noise may dominate.
-
-### Alert 5 — High TC (TC >= 60%)
-
-At high tumor content, germline and somatic LOH lines begin to converge. Origin determination by VAF alone becomes increasingly difficult.
+When only somatic models are compatible, the app states that germline origin is *less likely* but **cannot be excluded**: reverse LOH, in which the variant allele is lost within tumor cells, can make a germline variant appear at low VAF.
 
 ## Gene Reference System (GPV/PGPV Guidelines 2025 Edition)
 
@@ -88,8 +88,8 @@ The app provides gene-specific contextual messages based on the **Guidelines for
 - **Model matching** with +/-10% error margin and theoretical VAF display
 - **Automated interpretation** based on compatible model combinations
 - **Gene-specific messages** for 31 genes per GPV/PGPV Guidelines (2025 Edition)
-- **Five clinical alerts** based on TC values
-- **Low Confidence Zone** shading for TC < 20%
+- **Four clinical alerts** based on TC values (<= 20% / >= 60% / >= 70% / >= 90%)
+- **Shaded bands** reproducing Fig. 1: TC <= 20% (low confidence) and TC >= 60% (high VAF does not exclude somatic origin)
 - **Important Note** on startup with model assumptions and limitations
 - **Multi-variant CSV upload** to plot multiple variants simultaneously on the graph
 - **CSV template download** for multi-variant workflows
@@ -128,11 +128,25 @@ streamlit run app.py
 
 | File | Description |
 |------|-------------|
-| app.py | Main Streamlit application (ver 3.4) |
+| app.py | Main Streamlit application (ver 3.5) |
 | requirements.txt | Python dependencies |
 | VAF-TC theoretical_model.xlsx | Excel file for generating theoretical VAF-TC curves |
 | VAF_TC_theoretical_model.csv | CSV version of the theoretical model data |
 | data_dictionary.txt | Variable definitions for the theoretical model |
+
+## Changelog (ver 3.5)
+
+Aligned with the published paper (*J Hum Genet* 2026, doi:10.1038/s10038-026-01494-7) and hardened for long-term public use.
+
+- **Renamed** the application to **VAF–TC Visualizer**, the name used in the paper
+- **Changed** alert thresholds to **TC <= 20% / >= 60% / >= 70%**, matching the published description; the former Gray Zone alert (TC 61-66%) was removed as redundant with the TC >= 60% alert
+- **Added** the paper's wording "High VAF does not exclude a somatic origin" to the TC >= 60% alert
+- **Added** TC >= 60% yellow shading, plus "Germline (LOH with gain)" and "Subclone" area labels, reproducing Fig. 1
+- **Changed** low-VAF interpretation to state that germline origin cannot be excluded, citing **reverse LOH**
+- **Fixed** crash on CSV rows with non-numeric or out-of-range TC/VAF (division by zero); such rows are now reported and skipped
+- **Fixed** TC-band alerts reading the sidebar sliders instead of each uploaded CSV row
+- **Added** pandas to requirements.txt (previously an undeclared direct import) and pinned major versions
+- **Updated** citation with the full author list and DOI
 
 ## Changelog (ver 3.4)
 
@@ -156,7 +170,9 @@ streamlit run app.py
 
 If you use this tool in your research, please cite:
 
-> Kashima M, Tsubamoto H, et al. "VAF-Tumor Content Graph: A Simple Visual Tool for Discriminating Germline and Somatic Variants in Tumor-Only Sequencing." *Journal of Human Genetics* (submitted).
+> Kashima M, Tsubamoto H, Ueda T, Kinjo C, Okada C, Muroi Y, Ueda M, Otsuki T, Kataoka K, Nagahashi M, Matsuda I, Sawai H, Kijima T, Miyazaki A. VAF–tumor content graph: a simple visual framework for interpreting hereditary cancer variants and supporting genetic counseling in tumor-only sequencing. *Journal of Human Genetics*. 2026. https://doi.org/10.1038/s10038-026-01494-7
+
+The article is Open Access under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). This application is referred to as the **VAF–TC Visualizer** in the paper.
 
 ## Authors
 
